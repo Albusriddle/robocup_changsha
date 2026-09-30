@@ -199,6 +199,7 @@ def run_episode(
     step_collision: List[float] = []
     act_ms: List[float] = []
     build_ms: List[float] = []
+    policy_errors: List[int] = []
 
     try:
         env = make_training_env(task_config)
@@ -259,6 +260,14 @@ def run_episode(
                 if status == "ok":
                     status = "runtime_error"
                     error = f"close 异常 agent {i}: {type(exc).__name__}: {exc}"
+            # F11：静默降级观测。策略内部捕获异常后会退回零动作，局仍为 ok，
+            # 因此必须单独统计 error_count，否则"不报错但持续退化"会被漏掉。
+            _stats = getattr(policy, "stats", None)
+            if isinstance(_stats, dict):
+                try:
+                    policy_errors.append(int(_stats.get("error_count", 0)))
+                except (TypeError, ValueError):
+                    policy_errors.append(-1)
         if env is not None:
             try:
                 env.close()
@@ -292,6 +301,7 @@ def run_episode(
         "act_ms_max": float(max(act_ms)) if act_ms else None,
         "act_ms_samples": [round(float(v), 5) for v in act_ms],
         "act_count": len(act_ms),
+        "policy_error_count": int(sum(policy_errors)) if policy_errors else 0,
         "build_ms_sum": float(sum(build_ms)),
         "wall_ms": (time.perf_counter() - started) * 1000.0,
     }
@@ -631,8 +641,10 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument("--output", required=True, help="输出目录（如 outputs\\P666\\E001）")
     parser.add_argument("--n-per-group", type=int, default=50, help="私有口径每组场景数（取固定种子表前 n 个）")
-    parser.add_argument("--seed-block", type=str, default="A", choices=["A", "B", "both"],
-                        help="私有口径的固定种子块：A（默认，历史口径）、B（跨块复现）、both（同时给出两块）")
+    parser.add_argument("--seed-block", type=str, default="A", choices=["A", "B", "C", "D", "both"],
+                        help="私有口径的固定种子块：A（默认，历史口径）、B（跨块复现）、C/D（F2 场景池）、both（同时给出 A 与 B）")
+    parser.add_argument("--inject-error-probe", type=int, default=0,
+                        help="自检开关（默认 0=关闭）：让前 n 个策略实例先经历一次内部异常，用于证明 F11 断言会触发")
     parser.add_argument("--seeds-uniform", type=str, default=None, help="逗号分隔的 uniform 种子，覆盖 n-per-group 与 --seed-block")
     parser.add_argument("--seeds-crossing", type=str, default=None, help="逗号分隔的 crossing 种子，覆盖 n-per-group 与 --seed-block")
     parser.add_argument("--set", dest="overrides", action="append", default=[], type=_parse_override,
@@ -712,6 +724,33 @@ def print_cross_block(summary: Dict[str, Any]) -> None:
     )
 
 
+def _wrap_factory_with_error_probe(factory: PolicyFactory, n: int) -> PolicyFactory:
+    """F11 自检开关：让前 n 个策略实例先经历一次内部异常（entry.act 会吞掉并只计数）。
+
+    仅用于**证明**静默降级断言真的会触发；默认关闭（n=0）。不修改 entry.py，也不改变正常路径：
+    注入发生在策略 reset 之后（reset 会清空计数器）、第一次真实 act 之前，异常由 entry.act 内部捕获。
+    """
+    left = {"n": int(n)}
+
+    def wrapped(agent_index: int, scenario_seed: int, repeat_index: int):
+        policy = factory(agent_index, scenario_seed, repeat_index)
+        if left["n"] > 0:
+            left["n"] -= 1
+            original_reset = policy.reset
+
+            def reset_then_inject(context, _orig=original_reset, _pol=policy):
+                _orig(context)
+                try:
+                    _pol.act({})  # 空观测 => entry._act_impl 抛异常 => error_count += 1
+                except Exception:  # noqa: BLE001 - 注入失败不影响正常评测
+                    pass
+
+            policy.reset = reset_then_inject
+        return policy
+
+    return wrapped
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     _force_utf8_stdout()
     args = parse_args(argv)
@@ -747,6 +786,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             private_specs.append((key, block, seeds, seedset.describe_block(block)))
 
     factory, policy_info = make_policy_factory(overrides)
+    if args.inject_error_probe > 0:
+        factory = _wrap_factory_with_error_probe(factory, args.inject_error_probe)
+        print(f"!! 自检模式：已对前 {args.inject_error_probe} 个策略实例注入内部异常（预期断言会失败）")
     provenance = _policy_provenance()
 
     print("=== P666 MC 评测 ===")
@@ -800,8 +842,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     print_episode_failures(all_records)
 
+    # F11：静默降级断言。策略内部吞掉异常后会退回零动作，局仍为 ok，
+    # 只看 status 会漏掉"不报错但持续退化"，因此这里单独统计 error_count。
+    n_policy_errors = sum(int(r.get("policy_error_count", 0) or 0) for r in all_records)
+    if n_policy_errors:
+        print(f"!! 策略静默降级：policy_error_count 合计 = {n_policy_errors}")
+        for r in all_records:
+            if int(r.get("policy_error_count", 0) or 0):
+                print(f"   {r['case_id']} repeat={r['repeat_index']} seed={r['scenario_seed']} "
+                      f"error_count={r['policy_error_count']}")
+    else:
+        print("策略异常计数断言：全部为 0（无静默降级）")
+
     n_failed = sum(1 for r in all_records if r["status"] != "ok")
-    print(f"\n总用时 {wall_s:.1f}s；局数 {len(all_records)}；非正常局 {n_failed}")
+    print(f"\n总用时 {wall_s:.1f}s；局数 {len(all_records)}；非正常局 {n_failed}；"
+          f"策略内部异常 {n_policy_errors}")
 
     payload: Dict[str, Any] = {
         "tool": "eval_mc",
@@ -828,6 +883,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "wall_s": wall_s,
         "n_episodes": len(all_records),
         "n_failed": n_failed,
+        "n_policy_internal_errors": n_policy_errors,
         "calibers": results,
         "cross_block": cross_block,
         "episodes": all_records,
@@ -839,7 +895,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"已写出: {json_path}")
     print(f"已写出: {csv_path}")
 
-    return 0 if n_failed == 0 else 3
+    return 0 if (n_failed == 0 and n_policy_errors == 0) else 3
 
 
 if __name__ == "__main__":

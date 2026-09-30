@@ -144,6 +144,16 @@ class CoverageRulePolicy:
         self._chosen: Optional[int] = None
         self._last_step_index = -1
         self._error_count = 0
+        # ---- 只读诊断计数器（F3/F11）：只做整数记账，不参与任何决策、不改变动作 ----
+        # 由 tools_local/ 的本地工具读取与断言；act/reset 内绝不抛异常。
+        self.stats: Dict[str, int] = {
+            "act_calls": 0,
+            "error_count": 0,
+            "no_visible_target_steps": 0,
+            "memory_hits": 0,
+            "blind_center_steps": 0,
+            "stop_now_steps": 0,
+        }
 
     # ------------------------------------------------------------------ 生命周期
     def reset(self, context) -> None:
@@ -169,6 +179,8 @@ class CoverageRulePolicy:
             self._chosen = None
             self._last_step_index = -1
             self._error_count = 0
+            for _key in self.stats:
+                self.stats[_key] = 0
 
     def close(self) -> None:
         """无资源需要释放。"""
@@ -177,10 +189,12 @@ class CoverageRulePolicy:
     # ------------------------------------------------------------------ 每步决策
     def act(self, observation):
         """返回 (2,) float32 动作，范围 [-1, 1]；内部异常时退回零动作（有效性保险）。"""
+        self.stats["act_calls"] += 1
         try:
             return self._act_impl(observation)
         except Exception:
             self._error_count += 1
+            self.stats["error_count"] = self._error_count
             return np.zeros(2, dtype=np.float32)
 
     def _act_impl(self, observation):
@@ -239,6 +253,8 @@ class CoverageRulePolicy:
             self._chosen = chosen
         else:
             chosen = self._chosen
+            # 诊断计数：本步没有任何可见目标可参与选择（不改变决策）。
+            self.stats["no_visible_target_steps"] += 1
 
         # ---- 3) 生成控制目标：当前可见用现测相对位置；不可见且开启记忆则外推 ----
         visible_set = set(visible_now)
@@ -248,6 +264,8 @@ class CoverageRulePolicy:
             if chosen in visible_set:
                 goal_rel = self._history[chosen][1]
             elif cfg["memory"] and chosen in self._history:
+                # 诊断计数：已选目标当前不可见、走记忆外推分支（F3 关注的路径）。
+                self.stats["memory_hits"] += 1
                 last_step, last_rel, last_vel = self._history[chosen]
                 elapsed = max(step_index - last_step, 0)
                 extrapolated = last_rel + last_vel * dt * float(elapsed)
@@ -258,13 +276,16 @@ class CoverageRulePolicy:
                     goal_rel = extrapolated
 
         if stop_now:
+            self.stats["stop_now_steps"] += 1
             action = np.zeros(2, dtype=np.float64)
         elif goal_rel is not None:
             action = self._control(goal_rel)
         elif cfg["blind_action"] == "center":
             # 无可见目标：朝场地中心（self_state[0:2] 即自身绝对位置）驱动。
+            self.stats["blind_center_steps"] += 1
             action = self._control(-self_pos)
         else:
+            self.stats["blind_center_steps"] += 1
             action = np.zeros(2, dtype=np.float64)
 
         # ---- 4) 轻量避碰：仅对可见、距离 < safety_radius 的队友施加排斥 ----

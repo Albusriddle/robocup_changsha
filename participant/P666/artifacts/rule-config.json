@@ -1,0 +1,13 @@
+{
+  "schema_version": "coverage-rule-config/1.0",
+  "_note": "P666 规则策略的冻结超参数；entry.py:load_config 只读取下列 9 个契约键，未知键被忽略，缺失/损坏时回退 entry.py:DEFAULT_CONFIG。",
+  "control_gain": 20.0,
+  "predict_horizon": "remaining",
+  "unit_magnitude": false,
+  "deconflict": true,
+  "safety_radius": 0.12,
+  "safety_gain": 4.0,
+  "memory": true,
+  "blind_action": "center",
+  "clip_eps": 1e-06
+}

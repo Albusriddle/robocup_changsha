@@ -285,7 +285,16 @@ py -3.12 -m venv .venv
   空 `artifacts/` 会导致克隆后目录消失、预检失败，因此必须留真实产物。
 - **静态审核结果**：`scripts/check_submission.py` → 退出码 0、"审核通过"、`rejections: []`、`scan_hits: []`。
   提交内无 `pickle/dill/cloudpickle/torch.load`、无外部下载、无未登记动态加载；
-  `tools_local/` 三个脚本（同为提交内 `.py`，受同样 AST 审计）亦无任何禁用符号。
+  `tools_local/` 脚本（同为提交内 `.py`，受同样 AST 审计）亦无任何禁用符号。
+- **行尾转换防护（v2 验收实测发现并修复）**：`artifacts/rule-config.json` 的字节数与摘要写在
+  `submission.yaml` 里，而 Git 在 `core.autocrlf=true` 的平台（Windows 默认常见）会把文本文件的 LF
+  转成 CRLF。**实测在一份干净克隆里该文件变成 462 字节（预期 449），预检直接以"产物文件大小不匹配"
+  拒绝整份提交。** 因此新增 `participant/P666/.gitattributes` 声明 `artifacts/** -text`，
+  保证"本地工作副本 = 干净克隆 = 组织方容器"三种情形下字节一致；修复后干净克隆中实测 449 字节、
+  预检 `rejections: []`、`working_tree_dirty: false`。
+- **关于 `working_tree_dirty`**：官方 `coverage_bench/submission.py:144-161` 明确把**被忽略的文件**
+  也计入未提交内容，因此本地工作副本（仓库内有 `.venv/`、`outputs/`）必然报 `true`；
+  这不构成拒绝项（`rejections` 仍为空），且在干净克隆中该字段为 `false`。
 
 ---
 

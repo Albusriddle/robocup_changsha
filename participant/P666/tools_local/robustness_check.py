@@ -407,6 +407,38 @@ def _parse_override(text: str) -> Tuple[str, Any]:
     return key, raw
 
 
+def check_silent_degradation_observable(reporter: Reporter, factory: Callable[[int], Any], task: PublicTaskParams) -> None:
+    """F11：策略内部的静默降级必须可被外部观测。
+
+    `entry.act` 会吞掉内部异常并退回零动作——局仍然是 ok，只看 status 会漏掉
+    "不报错但持续退化"。这里断言计数器确实存在、畸形输入会使其递增、reset 会归零。
+    """
+    policy = factory(0)
+    policy.reset(episode_context(task, agent_index=0))
+    stats = getattr(policy, "stats", None)
+    ok_stats = isinstance(stats, dict) and "error_count" in stats
+    reporter.check("静默降级计数器可读（policy.stats['error_count']）", ok_stats,
+                   f"type={type(stats).__name__}")
+    if not ok_stats:
+        try:
+            policy.close()
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    _action, problem = try_act(policy, {})
+    reporter.check("畸形观测：异常被内部吞掉且 error_count 递增",
+                   int(stats.get("error_count", -1)) >= 1 and problem is None,
+                   f"error_count={stats.get('error_count')} action_problem={problem}")
+    policy.reset(episode_context(task, agent_index=0))
+    reporter.check("reset 后 error_count 归零（跨局不残留）",
+                   int(stats.get("error_count", -1)) == 0,
+                   f"error_count={stats.get('error_count')}")
+    try:
+        policy.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="P666 策略鲁棒性自测", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--set", dest="overrides", action="append", default=[], type=_parse_override,
@@ -435,6 +467,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     check_step_index(reporter, factory, task)
     check_instance_reuse(reporter, factory, task)
     check_close(reporter, factory)
+    check_silent_degradation_observable(reporter, factory, task)
 
     total = len(reporter.results)
     failed = reporter.failed

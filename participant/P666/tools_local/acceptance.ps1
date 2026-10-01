@@ -64,22 +64,32 @@ Run-Step -Name "4/5 鲁棒性自测 robustness_check" -Exe $Py -CmdArgs @(
 )
 
 Write-Output ""
-Write-Output "=== 5/5 范围自查 git diff --name-only master...P666 ==="
+Write-Output "=== 5/5 范围与洁净自查 ==="
+Write-Output "--- git diff --name-only master...P666 ---"
 $changed = @(& git diff --name-only master...P666)
 $changed | ForEach-Object { Write-Output ("   " + $_) }
 $outside = @($changed | Where-Object { $_ -notlike "participant/P666/*" })
-$dirty = @(& git status --porcelain)
+
+# S1-a：提交目录内不得残留 Python 字节码缓存。
+# 官方预检把"被忽略的文件"也算作未提交内容（coverage_bench/submission.py:144-161），
+# 一份 __pycache__ 就会让 working_tree_dirty=true、并把 file_count/total_bytes 虚增。
+$pyc = @(Get-ChildItem -Recurse -Force (Join-Path $RepoRoot "participant\P666") -Filter *.pyc -ErrorAction SilentlyContinue)
+Write-Output ("--- 提交目录内 *.pyc 数量（应为 0）: " + $pyc.Count + " ---")
+$pyc | ForEach-Object { Write-Output ("   " + $_.FullName) }
+
+# S1-b：使用与官方同语义的洁净检查（--ignored，并限定在提交目录），
+# 而不是 git status --porcelain —— 后者会忽略被 ignore 的文件，永远报绿。
+Write-Output "--- git status --porcelain --ignored -- participant/P666（应为空）---"
+$dirty = @(& git status --porcelain --ignored -- participant/P666)
+$dirty | ForEach-Object { Write-Output ("   " + $_) }
+
 if ($outside.Count -gt 0) {
     Write-Output "-> 越界文件:"
     $outside | ForEach-Object { Write-Output ("   " + $_) }
 }
-if ($dirty.Count -gt 0) {
-    Write-Output "-> 工作区不干净（应为空）:"
-    $dirty | ForEach-Object { Write-Output ("   " + $_) }
-}
-$scopeCode = if (($outside.Count -gt 0) -or ($dirty.Count -gt 0)) { 1 } else { 0 }
+$scopeCode = if (($outside.Count -gt 0) -or ($dirty.Count -gt 0) -or ($pyc.Count -gt 0)) { 1 } else { 0 }
 Write-Output ("-> exit code: " + $scopeCode)
-$results += [pscustomobject]@{ Step = "5/5 范围自查"; ExitCode = $scopeCode }
+$results += [pscustomobject]@{ Step = "5/5 范围与洁净自查"; ExitCode = $scopeCode }
 
 Write-Output ""
 Write-Output "=== 汇总 ==="

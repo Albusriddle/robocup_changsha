@@ -69,6 +69,20 @@ powershell -ExecutionPolicy Bypass -File participant\P666\tools_local\acceptance
   `total_bytes` = 这些文件字节和。
 - 退出码：全部局 `status == "ok"` 且策略内部异常计数为 0 → 0；否则 3，并在 stdout 逐条打印失败局面。
 
+## 独立复核发现与修复（补充轮）
+
+独立复核（`notes/verify/VERIFY-REPORT-v2.md`，条目 1–8）发现两处工具级不一致，均已修复：
+
+- **条目 7-③ 输出路径探活**：`--output` 指向不可写路径时，原先会**先跑完全部场景**再在写盘阶段抛未捕获的
+  `FileNotFoundError`。现在 `eval_mc.py` / `predict_score.py` 在解析参数后**立即探活**（建目录 + 写探针文件），
+  失败即打印一行说明并 **exit 2**，无 traceback、无残留。
+- **条目 7-⑤ `--set` 越界值不再静默**：`--set control_gain=1e9` 原先被 CLI 原样接受并写进产物元数据，
+  而策略按取值域静默回退到默认值 —— 产物会**记录一个没有生效的配置**，实验归因失真。
+  现在 `eval_mc.py` 会构造策略并比较「请求值 vs 生效值」（含未知键），不一致即逐条打印并 **exit 2**。
+
+修复后复测：两类非法输入均 exit 2；合法 `--set` 仍 exit 0；208 局与 `E001-control` 逐位一致；
+`rejections` / `scan_hits` 仍为空数组。
+
 ## 已验证事实（2026-09-30，Python 3.12.10 / numpy 2.5.3 / mpe2 1.1.1）
 
 1. **与官方评测器一致**：公开套件上本工具 `S = 221.667`，

@@ -668,6 +668,44 @@ def _file_sha256(path: Path) -> Optional[str]:
         return None
 
 
+def _ensure_output_dir(path: Path) -> bool:
+    """输出目录不可创建时**干净报错**（不抛 traceback）。
+
+    独立复核条目 7-③ 发现：原先 `--output` 指向不可写路径时会先跑完全部场景，
+    再在写盘阶段抛未捕获的 FileNotFoundError —— 既浪费十几秒又留下难读的 traceback。
+    这里改为在解析参数后立即探活，失败即返回 2。
+    """
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".write_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        print(f"!! 输出目录不可写: {path}  ({type(exc).__name__}: {exc})")
+        return False
+    return True
+
+
+def _override_mismatch(overrides: Dict[str, Any]) -> Dict[str, Any]:
+    """检查 `--set` 请求值是否被 entry 的取值域**静默回退**。
+
+    独立复核条目 7-⑤ 发现：`--set control_gain=1e9` 会被 CLI 原样接受并写进产物元数据
+    （`overrides`），但 entry 的取值域 (0, 1e3] 会静默回退到默认 20.0 —— 产物因此
+    "记录了一个没有生效的配置"，实验归因会失真。这里比较"请求值 vs 实际生效值"，
+    返回不一致项（含未知键），由调用方中止评测。
+    """
+    probe = entry.CoverageRulePolicy(dict(entry.DEFAULT_CONFIG, **overrides), ARTIFACT_DIR)
+    effective = dict(probe.config)
+    bad: Dict[str, Any] = {}
+    for key, requested in overrides.items():
+        if key not in entry.DEFAULT_CONFIG:
+            bad[key] = (requested, None)
+            continue
+        if effective.get(key) != requested:
+            bad[key] = (requested, effective.get(key))
+    return bad
+
+
 def _policy_provenance() -> Dict[str, Any]:
     """记录本次运行实际使用的 entry.py 指纹：换版本后数字不可直接横向比较。"""
     raw = getattr(entry, "__file__", None)
@@ -788,6 +826,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 2
     overrides = dict(args.overrides)
     include_public = not args.no_public
+
+    out_dir_early = Path(args.output)
+    if not out_dir_early.is_absolute():
+        out_dir_early = REPO_ROOT / out_dir_early
+    if not _ensure_output_dir(out_dir_early):
+        return 2
+
+    if overrides:
+        mismatch = _override_mismatch(overrides)
+        if mismatch:
+            print("!! --set 覆盖值与策略实际生效值不一致（entry 会按取值域静默回退/忽略未知键）：")
+            for key, (requested, effective) in mismatch.items():
+                print(f"   {key}: 请求 {requested!r} -> 生效 {effective!r}")
+            print("   为避免产物元数据失真（记录了一个没生效的配置），本次评测中止；请改用合法取值。")
+            return 2
 
     suite = load_suite(SUITE_PATH)
     group_order = [g.group_id for g in suite.groups]

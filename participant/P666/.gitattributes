@@ -1,10 +1,10 @@
-# 产物文件必须按字节原样检出。
+# 本子树内所有文件必须按字节原样检出（不做任何行尾转换）。
 #
-# 原因（v2 验收实测）：artifacts/rule-config.json 的 sha256 与 size_bytes 写在 submission.yaml 里，
-# 而 Git 在 core.autocrlf=true 的平台上会把文本文件的 LF 转成 CRLF：
-# 一份干净克隆里该文件曾变成 462 字节（预期 449），预检直接以
-# "产物文件大小不匹配" 拒绝整份提交。
-#
-# 这里用 -text 声明 artifacts/ 下的产物不做任何行尾转换，保证
-# "本地 == 克隆 == 组织方容器" 三种情形下的字节一致。
-artifacts/** -text
+# 原因（v2/v3 验收实测，两类同源问题）：
+# 1) artifacts/rule-config.json 的 sha256 与 size_bytes 写在 submission.yaml 里：在
+#    core.autocrlf=true 的平台上做干净克隆，该文件曾从 449 字节变成 462 字节（13 行各多一个 CR），
+#    预检直接以"产物文件大小不匹配"拒绝整份提交。
+# 2) REPORT.md 公开了 entry.py 的内容 SHA-256 与逐字节核验方法；若 entry.py 被转成 CRLF，
+#    公开的摘要就核不上（与 (1) 同类）。
+# 因此把保护范围扩到整棵子树：本地工作副本、干净克隆、组织方容器三种环境下字节一致。
+* -text

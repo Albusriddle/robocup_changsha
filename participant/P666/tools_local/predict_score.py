@@ -305,6 +305,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         "threshold": args.threshold,
         "block_means": per_block,
         "variance_decomposition": vd,
+        # ---- 补丁 A（R3）：落盘逐场景 J，使预测区间可被第三方独立复算 ----
+        # 说明：产物此前只有块均值与汇总统计，"从产物独立复算 P5/P50/P95" 物理上不可执行。
+        # 现在给出 16 块 × 50 场景 × 2 组的原始 J 与对应种子，任何第三方都能用自写 bootstrap 复算。
+        "per_scenario_j": {
+            "layout": "uniform/crossing 均为 (块数, 50)；行序 = blocks；列序 = 该块的场景顺序（种子见 *_seeds）",
+            "blocks": blocks,
+            "uniform_seeds": {b: list(seedset.block_seeds(b)["uniform"]) for b in blocks},
+            "crossing_seeds": {b: list(seedset.block_seeds(b)["crossing"]) for b in blocks},
+            "uniform": [[float(v) for v in row] for row in u],
+            "crossing": [[float(v) for v in row] for row in c],
+        },
+        "sampling_scheme": {
+            "scores": "S = 500 * (mean(J_basic) + mean(J_coop))",
+            "scene_only": "每组从该组池（B*50 个场景，行优先）等概率有放回抽 scenarios_per_group 个",
+            "block_random_effects": "每次先均匀抽 1 个块（0..B-1），再在该块的组内等概率有放回抽 scenarios_per_group 个",
+            "two_level_standard": "第 1 层：从 B 个块中有放回抽 B 个（得长度 B 的块索引序列）；"
+                                  "第 2 层：每个 replicate 从这 B 个槽位里等概率抽 scenarios_per_group 个槽位，"
+                                  "取该槽位的块，再在该块内抽场景",
+            "rng": "numpy.random.default_rng(seed)；三个模型依次使用同一 rng 流（顺序：scene_only → block_random_effects → two_level_standard）",
+            "note": "复算时须按上述顺序与参数使用同一 rng，才能逐位复现；不同实现只要抽样方案一致，分位数应一致。",
+        },
         "models": stats,
         "model_widths_P95_minus_P5": width,
         "widest_model": widest,

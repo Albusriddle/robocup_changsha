@@ -69,6 +69,23 @@ powershell -ExecutionPolicy Bypass -File participant\P666\tools_local\acceptance
   `total_bytes` = 这些文件字节和。
 - 退出码：全部局 `status == "ok"` 且策略内部异常计数为 0 → 0；否则 3，并在 stdout 逐条打印失败局面。
 
+## 如何独立复算预测区间（补丁 A）
+
+`predict-<tag>.json` 现在包含**逐场景 J**，因此第三方不需要重跑策略也能复算：
+
+1. 读 `per_scenario_j`：`uniform` / `crossing` 均为 `(16, 50)` 的二维数组（行序 = `blocks`，
+   列序 = 该块的场景顺序，种子见 `uniform_seeds` / `crossing_seeds`）。
+2. 计分口径：`S = 500 × (mean(J_basic) + mean(J_coop))`。
+3. 按 `sampling_scheme` 里写明的三种抽样方案各自实现 bootstrap（`--resamples`、`--seed` 也记录在产物里）：
+   - `scene_only`：每组从该组池（`16×50` 个，行优先）等概率有放回抽 2 个；
+   - `block_random_effects`：每次均匀抽 1 个块，再在该块内抽 2 个；
+   - `two_level_standard`：先从 16 个块中有放回抽 16 个槽位，再从槽位里抽 2 个。
+4. 复算预期（`--resamples 10000 --seed 20260930`）：
+   `scene_only` **41.7 / 158.3 / 300.0**（P5/P50/P95，`P(S≥130)=0.645`）；
+   `block_random_effects` 41.7 / 158.3 / 296.7（0.647）；`two_level_standard` 41.7 / 158.3 / 300.0（0.646）。
+   留一法 P50 ∈ [158.3, 166.7]、P95 ∈ [293.3, 308.3]。
+5. `per_scenario_j` 只写在 `outputs/` 下（约 75 KB 的 JSON），**不进提交、不占 `artifacts/` 限额**。
+
 ## 独立复核发现与修复（补充轮）
 
 独立复核（`notes/verify/VERIFY-REPORT-v2.md`，条目 1–8）发现两处工具级不一致，均已修复：

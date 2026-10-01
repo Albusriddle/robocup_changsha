@@ -212,6 +212,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.scenarios_per_group <= 0:
         raise SystemExit("--scenarios-per-group 必须为正整数")
 
+    # 输出目录探活：独立复核条目 7-③ 发现原先会先跑完 16 个块、再在写盘阶段抛
+    # 未捕获的 FileNotFoundError。这里提前干净报错（exit 2）。
+    out_dir: Path | None = None
+    if args.output:
+        out_dir = Path(args.output)
+        if not out_dir.is_absolute():
+            out_dir = _REPO / out_dir
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            probe = out_dir / ".write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+        except OSError as exc:
+            print(f"!! 输出目录不可写: {out_dir}  ({type(exc).__name__}: {exc})")
+            return 2
+
     print("=" * 84)
     print("S3 预测区间：多块场景池 + 三种重抽样模型")
     print("=" * 84)
@@ -305,12 +321,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                                  if args.code_commit else "未提供：请用 --code-commit 传入 git rev-parse HEAD"),
         },
     }
-    if args.output:
-        out = Path(args.output)
-        if not out.is_absolute():
-            out = _REPO / out
-        out.mkdir(parents=True, exist_ok=True)
-        path = out / f"predict-{args.tag}.json"
+    if out_dir is not None:
+        path = out_dir / f"predict-{args.tag}.json"
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n已写出: {path}")
     return 0

@@ -8,9 +8,9 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `seedset.py` | 固定的私有开发种子集常量（先固定、再使用、永不用于训练）。四块：A `7001..7050 / 8001..8050`、B `5001..5050 / 6001..6050`、C `9001..9050 / 9101..9150`、D `9201..9250 / 9301..9350`，另含公开 4 例。纯常量 + 纯函数，无随机抽样，自带 self-check。 |
-| `eval_mc.py` | 多种子蒙特卡洛评测：官方环境直跑，双口径（私有种子 / 公开 4 例），输出 J̄、S、CI95、每步覆盖率曲线、碰撞率、act 耗时 p95，写 JSON + CSV；含 **F11 策略内部异常计数断言**。 |
-| `predict_score.py` | **F2**：对**官方核验成绩**的预测区间。四块共 200+200 场景池 → 套件级重抽样（默认 10000 次）→ `P5/P50/P95` 与 `P(S≥130)`，并给出含块效应的两层 bootstrap 区间。 |
+| `seedset.py` | 固定的私有开发种子集常量（先固定、再使用、永不用于训练）。**16 个私有块**：A `7001..7050 / 8001..8050`、B `5001..5050 / 6001..6050`、C `9001..9050 / 9101..9150`、D `9201..9250 / 9301..9350`、E–P `10001..12350`（每块 50+50），另含公开 4 例。纯常量 + 纯函数，无随机抽样，自带 self-check（含"块间与公开种子零重叠"断言）。 |
+| `eval_mc.py` | 多种子蒙特卡洛评测：官方环境直跑，双口径（私有种子 / 公开 4 例），输出 J̄、S、CI95、每步覆盖率曲线、碰撞率、act 耗时 p95，写 JSON + CSV；含 **F11 策略内部异常计数断言**与 **S4 工具/提交归因字段**。 |
+| `predict_score.py` | **S3**：对**官方核验成绩**的预测区间。**16 个固定块**（800+800 场景池）→ **三种重抽样模型并列**（`scene_only` / `block_random_effects` / `two_level_standard`）→ `P5/P50/P95` 与 `P(S≥130)`；另给块均值表、方差分解（块内 vs 块间）与留一块交叉验证。 |
 | `robustness_check.py` | 极端输入与跨局状态自测（15 条）：全不可见、目标/队友精确重合、NaN/inf、`step_index` 跳变与复位、单实例连续 8 局复用、close、以及 **F11 静默降级可观测性**。 |
 | `acceptance.ps1` | **F15** 一键验收：预检 → 公开评测 → 双块 MC → 鲁棒性 → 范围自查，逐项打印退出码，任一失败返回非零。 |
 | `real_dynamics_probe.py` | **F8** 证据脚本：实测机器人位移曲线、目标运动、奖励结构、接触力（本机复现 10 步轴向 0.2490 m）。 |
@@ -28,8 +28,10 @@
 .\.venv\Scripts\python.exe participant\P666\tools_local\eval_mc.py `
     --output outputs\P666\e007 --tag e007 --seed-block both --set predict_horizon=zero
 
-# F2：官方核验成绩预测区间
-.\.venv\Scripts\python.exe participant\P666\tools_local\predict_score.py --output outputs\P666\predict
+# S3：官方核验成绩预测区间（16 块 + 三种重抽样模型 + 块均值/方差分解/留一法）
+#     --code-commit 由调用方注入（acceptance.ps1 就是这么做的）
+.\.venv\Scripts\python.exe participant\P666\tools_local\predict_score.py `
+    --output outputs\P666\predict --code-commit (git rev-parse HEAD)
 
 # 鲁棒性自测（15 条，含 F11 断言）
 .\.venv\Scripts\python.exe participant\P666\tools_local\robustness_check.py
@@ -54,8 +56,17 @@ powershell -ExecutionPolicy Bypass -File participant\P666\tools_local\acceptance
 - **块内 CI95**（`eval_mc.py`）= bootstrap 1000 次、`seed=81273`、重采样 scenario 均值、取 2.5/97.5 分位；
   它只衡量**块内均值**的不确定性。
 - **套件级预测区间**（`predict_score.py`）= 模拟"核验套件只含 2 场景/组"的口径，
-  与块内 CI95 是**两个不同口径**：前者宽得多（本任务下 P5–P95 跨度 ≈ 260 分），
+  与块内 CI95 是**两个不同口径**：前者宽得多（本任务下 P5–P95 跨度 ≈ 258 分），
   后者约 ±25 分。**不能用块内 CI95 预测核验成绩。**
+- 三种模型**不预设谁更保守**（实测 P5–P95 跨度 258.3 / 255.0 / 258.3，块效应模型反而略窄）；
+  场景级 J 的块间方差占比只有 0.9%–3.3%，即在"每组 2 场景"的尺度上块效应被场景内噪声淹没。
+- **洁净语义（S1）**：官方预检用 `git status --porcelain --ignored -- .`（cwd 限定提交目录），
+  **被忽略的文件同样算"未提交内容"**（`coverage_bench/submission.py:144-161`）。
+  因此提交目录内**不得残留 `__pycache__/*.pyc`**：本目录每个脚本都在 `import sys` 后写了
+  `sys.dont_write_bytecode = True`（不依赖环境变量），`acceptance.ps1` 也会检查该目录
+  `*.pyc` 数为 0 且 `--ignored` 洁净检查为空，两项都计入退出码。
+  通过时：预检 `working_tree_dirty: false`、`file_count` = `git ls-files participant/P666` 条数、
+  `total_bytes` = 这些文件字节和。
 - 退出码：全部局 `status == "ok"` 且策略内部异常计数为 0 → 0；否则 3，并在 stdout 逐条打印失败局面。
 
 ## 已验证事实（2026-09-30，Python 3.12.10 / numpy 2.5.3 / mpe2 1.1.1）
@@ -72,9 +83,19 @@ powershell -ExecutionPolicy Bypass -File participant\P666\tools_local\acceptance
 4. **鲁棒性**：`robustness_check.py` **15/15 PASS**（原 12 条 + F11 新增 3 条：计数器可读、
    畸形观测递增、reset 后归零）。
 5. **静态审计**：`scripts/check_submission.py` → `rejections: []`、`scan_hits: []`（提交目录 19 个文件）。
-6. **F2 预测区间**（四块 A/B/C/D，200+200 场景池）：只抽场景 `P5=41.7 / P50=158.3 / P95=305.1`，
-   `P(S≥130)=0.649`；两层 bootstrap（含块效应）`P5=41.7 / P50=158.3 / P95=301.7`，`P(S≥130)=0.644`。
+6. **S3 预测区间**（16 个块 A–P，800+800 场景池）：三模型 `P5/P50/P95` =
+   `scene_only` **41.7 / 158.3 / 300.0**、`block_random_effects` 41.7 / 158.3 / 296.7、
+   `two_level_standard` 41.7 / 158.3 / 300.0；`P(S≥130)` ≈ **0.645–0.647**。
+   块均值 `S(50/50)` ∈ [130.3, 186.3]；块间方差占比 0.9%（池化）/ 1.4%（crossing）/ 3.3%（uniform）；
+   留一法 P50 ∈ [158.3, 166.7]、P95 ∈ [293.3, 308.3]。
    假设：私有核验套件与公开套件同构（2 场景 × 2 重复/组）——组织方未公布私有规模，公布后需重跑。
+7. **S4 归因**：`eval_mc.py` / `predict_score.py` 的产物 JSON 记录 `tool_sha256`、`seedset_sha256`、
+   `entry_sha256` 与 `code_commit`。`entry_sha256` 定位策略、`tool_sha256`/`seedset_sha256` 定位
+   **产生数字的工具与种子表**、`code_commit` 定位代码版本。`code_commit` 由调用方注入
+   （`acceptance.ps1` 执行 `git rev-parse HEAD`）——**工具内不用 subprocess 调 git**，
+   否则会产生人工审核命中项、把 `scan_hits` 从 0 变成非 0。
+8. **S1 洁净**：跑完全部工具后提交目录内 `*.pyc` = 0；预检 `working_tree_dirty: false`、
+   `file_count = 19 = git ls-files participant/P666`、`total_bytes = 229014` = 这些文件字节和。
 7. **F8 移植脚本可复现关键数字**：`real_dynamics_probe.py` 实测 10 步轴向位移 0.2490 m；
    `drive_magnitude_probe.measure_displacement([1,1])` 得 0.3522 m；`geometric_ceiling.py` 得 ≈142.1。
 8. **F3 诊断计数器**（`entry.stats`）：6000 次 act 中 `memory_hits=3`（块 A 0、块 B 3），

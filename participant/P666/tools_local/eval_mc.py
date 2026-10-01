@@ -656,6 +656,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--no-public", action="store_true", help="只跑私有种子口径")
     parser.add_argument("--bootstrap", type=int, default=BOOTSTRAP_RESAMPLES, help="bootstrap 重采样次数")
     parser.add_argument("--bootstrap-seed", type=int, default=BOOTSTRAP_SEED, help="bootstrap 随机种子")
+    parser.add_argument("--code-commit", type=str, default=None,
+                        help="S4：代码提交号（由 acceptance.ps1 执行 git rev-parse HEAD 后传入；默认 null=未提供）")
     return parser.parse_args(argv)
 
 
@@ -679,6 +681,31 @@ def _policy_provenance() -> Dict[str, Any]:
         stat = path.stat()
         info["entry_size_bytes"] = int(stat.st_size)
         info["entry_mtime"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime))
+    return info
+
+
+def _tool_provenance() -> Dict[str, Any]:
+    """S4：记录工具自身与种子表的哈希。
+
+    只记录 entry 哈希无法归因产物（这正是当初 184.533 无法定性的根因）：
+    同一份 entry.py 配上不同版本的 eval_mc.py 也会给出不同数字。
+    这里用 hashlib 直接对 `__file__` 与 seedset.py 求摘要——**不使用 subprocess 调 git**
+    （那属于静态审计的人工审核命中项，会把 scan_hits 从 0 变成非 0）。
+    提交号由调用方通过 `--code-commit` 注入（acceptance.ps1 执行 git rev-parse HEAD 后传入）。
+    """
+    info: Dict[str, Any] = {"tool_path": None, "tool_sha256": None, "seedset_path": None, "seedset_sha256": None}
+    try:
+        tool_path = Path(__file__).resolve()
+        info["tool_path"] = str(tool_path)
+        info["tool_sha256"] = _file_sha256(tool_path)
+    except Exception:  # noqa: BLE001 - 指纹缺失不应中断评测
+        pass
+    try:
+        seedset_path = Path(seedset.__file__).resolve()
+        info["seedset_path"] = str(seedset_path)
+        info["seedset_sha256"] = _file_sha256(seedset_path)
+    except Exception:  # noqa: BLE001
+        pass
     return info
 
 
@@ -871,6 +898,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "suite": {"path": str(SUITE_PATH), "suite_id": suite.suite_id, "suite_hash": suite.suite_hash},
         "policy": policy_info,
         "entry": provenance,
+        "tool_provenance": _tool_provenance(),
+        "code_commit": args.code_commit if args.code_commit else None,
+        "code_commit_note": ("由调用方注入（acceptance.ps1 执行 git rev-parse HEAD）"
+                             if args.code_commit else "未提供：请用 --code-commit 传入 git rev-parse HEAD"),
         "seed_block": "custom" if custom else args.seed_block,
         "private_calibers": {
             key: {"block": block, "describe": text}

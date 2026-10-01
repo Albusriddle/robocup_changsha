@@ -38,6 +38,18 @@ __all__ = [
     "BLOCK_B",
     "BLOCK_C",
     "BLOCK_D",
+    "BLOCK_E",
+    "BLOCK_F",
+    "BLOCK_G",
+    "BLOCK_H",
+    "BLOCK_I",
+    "BLOCK_J",
+    "BLOCK_K",
+    "BLOCK_L",
+    "BLOCK_M",
+    "BLOCK_N",
+    "BLOCK_O",
+    "BLOCK_P",
     "BLOCK_PUBLIC",
     "BLOCKS",
     # 纯函数
@@ -63,8 +75,22 @@ BLOCK_A: str = "A"
 BLOCK_B: str = "B"
 BLOCK_C: str = "C"
 BLOCK_D: str = "D"
+BLOCK_E: str = "E"
+BLOCK_F: str = "F"
+BLOCK_G: str = "G"
+BLOCK_H: str = "H"
+BLOCK_I: str = "I"
+BLOCK_J: str = "J"
+BLOCK_K: str = "K"
+BLOCK_L: str = "L"
+BLOCK_M: str = "M"
+BLOCK_N: str = "N"
+BLOCK_O: str = "O"
+BLOCK_P: str = "P"
 BLOCK_PUBLIC: str = "public"
-BLOCKS: Tuple[str, ...] = (BLOCK_A, BLOCK_B, BLOCK_C, BLOCK_D, BLOCK_PUBLIC)
+BLOCKS: Tuple[str, ...] = (BLOCK_A, BLOCK_B, BLOCK_C, BLOCK_D, BLOCK_E, BLOCK_F, BLOCK_G,
+                           BLOCK_H, BLOCK_I, BLOCK_J, BLOCK_K, BLOCK_L, BLOCK_M, BLOCK_N,
+                           BLOCK_O, BLOCK_P, BLOCK_PUBLIC)
 
 # --- 块 A（默认决策口径；常量与语义自 2026-09-30 首版起冻结）---
 UNIFORM_SEEDS: Tuple[int, ...] = tuple(range(7001, 7051))   # 50 个
@@ -80,6 +106,32 @@ CROSSING_SEEDS_C: Tuple[int, ...] = tuple(range(9101, 9151))   # 50 个
 UNIFORM_SEEDS_D: Tuple[int, ...] = tuple(range(9201, 9251))    # 50 个
 CROSSING_SEEDS_D: Tuple[int, ...] = tuple(range(9301, 9351))   # 50 个
 
+# --- 块 E..P（S3：块数从 4 扩到 16，用于估计"块间分布"；与已有块和公开种子全部互不重叠）---
+UNIFORM_SEEDS_E: Tuple[int, ...] = tuple(range(10001, 10051))
+CROSSING_SEEDS_E: Tuple[int, ...] = tuple(range(10101, 10151))
+UNIFORM_SEEDS_F: Tuple[int, ...] = tuple(range(10201, 10251))
+CROSSING_SEEDS_F: Tuple[int, ...] = tuple(range(10301, 10351))
+UNIFORM_SEEDS_G: Tuple[int, ...] = tuple(range(10401, 10451))
+CROSSING_SEEDS_G: Tuple[int, ...] = tuple(range(10501, 10551))
+UNIFORM_SEEDS_H: Tuple[int, ...] = tuple(range(10601, 10651))
+CROSSING_SEEDS_H: Tuple[int, ...] = tuple(range(10701, 10751))
+UNIFORM_SEEDS_I: Tuple[int, ...] = tuple(range(10801, 10851))
+CROSSING_SEEDS_I: Tuple[int, ...] = tuple(range(10901, 10951))
+UNIFORM_SEEDS_J: Tuple[int, ...] = tuple(range(11001, 11051))
+CROSSING_SEEDS_J: Tuple[int, ...] = tuple(range(11101, 11151))
+UNIFORM_SEEDS_K: Tuple[int, ...] = tuple(range(11201, 11251))
+CROSSING_SEEDS_K: Tuple[int, ...] = tuple(range(11301, 11351))
+UNIFORM_SEEDS_L: Tuple[int, ...] = tuple(range(11401, 11451))
+CROSSING_SEEDS_L: Tuple[int, ...] = tuple(range(11501, 11551))
+UNIFORM_SEEDS_M: Tuple[int, ...] = tuple(range(11601, 11651))
+CROSSING_SEEDS_M: Tuple[int, ...] = tuple(range(11701, 11751))
+UNIFORM_SEEDS_N: Tuple[int, ...] = tuple(range(11801, 11851))
+CROSSING_SEEDS_N: Tuple[int, ...] = tuple(range(11901, 11951))
+UNIFORM_SEEDS_O: Tuple[int, ...] = tuple(range(12001, 12051))
+CROSSING_SEEDS_O: Tuple[int, ...] = tuple(range(12101, 12151))
+UNIFORM_SEEDS_P: Tuple[int, ...] = tuple(range(12201, 12251))
+CROSSING_SEEDS_P: Tuple[int, ...] = tuple(range(12301, 12351))
+
 # --- 公开块（官方公开套件的 4 例）---
 PUBLIC_UNIFORM_SEEDS: Tuple[int, ...] = (1001, 1002)
 PUBLIC_CROSSING_SEEDS: Tuple[int, ...] = (2001, 2002)
@@ -90,6 +142,18 @@ _BLOCK_GROUPS: Dict[str, Dict[str, Tuple[int, ...]]] = {
     BLOCK_B: {GROUP_UNIFORM: UNIFORM_SEEDS_B, GROUP_CROSSING: CROSSING_SEEDS_B},
     BLOCK_C: {GROUP_UNIFORM: UNIFORM_SEEDS_C, GROUP_CROSSING: CROSSING_SEEDS_C},
     BLOCK_D: {GROUP_UNIFORM: UNIFORM_SEEDS_D, GROUP_CROSSING: CROSSING_SEEDS_D},
+    BLOCK_E: {GROUP_UNIFORM: UNIFORM_SEEDS_E, GROUP_CROSSING: CROSSING_SEEDS_E},
+    BLOCK_F: {GROUP_UNIFORM: UNIFORM_SEEDS_F, GROUP_CROSSING: CROSSING_SEEDS_F},
+    BLOCK_G: {GROUP_UNIFORM: UNIFORM_SEEDS_G, GROUP_CROSSING: CROSSING_SEEDS_G},
+    BLOCK_H: {GROUP_UNIFORM: UNIFORM_SEEDS_H, GROUP_CROSSING: CROSSING_SEEDS_H},
+    BLOCK_I: {GROUP_UNIFORM: UNIFORM_SEEDS_I, GROUP_CROSSING: CROSSING_SEEDS_I},
+    BLOCK_J: {GROUP_UNIFORM: UNIFORM_SEEDS_J, GROUP_CROSSING: CROSSING_SEEDS_J},
+    BLOCK_K: {GROUP_UNIFORM: UNIFORM_SEEDS_K, GROUP_CROSSING: CROSSING_SEEDS_K},
+    BLOCK_L: {GROUP_UNIFORM: UNIFORM_SEEDS_L, GROUP_CROSSING: CROSSING_SEEDS_L},
+    BLOCK_M: {GROUP_UNIFORM: UNIFORM_SEEDS_M, GROUP_CROSSING: CROSSING_SEEDS_M},
+    BLOCK_N: {GROUP_UNIFORM: UNIFORM_SEEDS_N, GROUP_CROSSING: CROSSING_SEEDS_N},
+    BLOCK_O: {GROUP_UNIFORM: UNIFORM_SEEDS_O, GROUP_CROSSING: CROSSING_SEEDS_O},
+    BLOCK_P: {GROUP_UNIFORM: UNIFORM_SEEDS_P, GROUP_CROSSING: CROSSING_SEEDS_P},
     BLOCK_PUBLIC: {GROUP_UNIFORM: PUBLIC_UNIFORM_SEEDS, GROUP_CROSSING: PUBLIC_CROSSING_SEEDS},
 }
 
@@ -255,7 +319,7 @@ def _self_check() -> None:
     assert list_seeds(BLOCK_B) == UNIFORM_SEEDS_B + CROSSING_SEEDS_B
     assert list_seeds(BLOCK_PUBLIC) == PUBLIC_SEEDS
     assert group_of_public_seed(2001) == GROUP_CROSSING
-    assert blocks() == ("A", "B", "C", "D", "public")
+    assert blocks() == ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "public")
     assert block_seeds(BLOCK_B, 2) == {GROUP_UNIFORM: (5001, 5002), GROUP_CROSSING: (6001, 6002)}
     # 块 C / 块 D（F2 场景池）
     assert UNIFORM_SEEDS_C[0] == 9001 and UNIFORM_SEEDS_C[-1] == 9050
@@ -263,9 +327,23 @@ def _self_check() -> None:
     assert UNIFORM_SEEDS_D[0] == 9201 and UNIFORM_SEEDS_D[-1] == 9250
     assert CROSSING_SEEDS_D[0] == 9301 and CROSSING_SEEDS_D[-1] == 9350
     assert len(set(all_seeds(BLOCK_C))) == 100 and len(set(all_seeds(BLOCK_D))) == 100
-    _pool = set(all_seeds(BLOCK_A) + all_seeds(BLOCK_B) + all_seeds(BLOCK_C) + all_seeds(BLOCK_D) + PUBLIC_SEEDS)
-    assert len(_pool) == 4 * 100 + 4, "四个块与公开种子必须互不重叠"
     assert block_seeds(BLOCK_C, 2) == {GROUP_UNIFORM: (9001, 9002), GROUP_CROSSING: (9101, 9102)}
+    # 块 E..P（S3：块数扩到 16）
+    _private_blocks = tuple(b for b in blocks() if b != BLOCK_PUBLIC)
+    assert len(_private_blocks) == 16, f"私有块应为 16 个，实际 {len(_private_blocks)}"
+    _seen: set = set(PUBLIC_SEEDS)
+    for _b in _private_blocks:
+        _seeds = all_seeds(_b)
+        assert len(_seeds) == 100, f"块 {_b} 应为 100 个种子"
+        assert len(set(_seeds)) == 100, f"块 {_b} 内部不得重复"
+        dup = _seen & set(_seeds)
+        assert not dup, f"块 {_b} 与已有块/公开种子重叠: {sorted(dup)[:5]}"
+        _seen |= set(_seeds)
+    assert len(_seen) == 16 * 100 + len(PUBLIC_SEEDS), "16 个块 + 公开种子必须互不重叠"
+    for _b in ("E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"):
+        _bs = block_seeds(_b)
+        assert len(_bs[GROUP_UNIFORM]) == 50 and len(_bs[GROUP_CROSSING]) == 50
+        assert set(_bs[GROUP_UNIFORM]) & set(_bs[GROUP_CROSSING]) == set(), f"块 {_b} 两组不得重叠"
 
 
 if __name__ == "__main__":
@@ -276,9 +354,6 @@ if __name__ == "__main__":
             pass
     _self_check()
     print(describe())
-    print(describe_block(BLOCK_A))
-    print(describe_block(BLOCK_B))
-    print(describe_block(BLOCK_C))
-    print(describe_block(BLOCK_D))
-    print(describe_block(BLOCK_PUBLIC))
+    for _b in blocks():
+        print(describe_block(_b))
     print("self-check: ok")

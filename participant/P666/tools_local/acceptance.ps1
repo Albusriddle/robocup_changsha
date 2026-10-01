@@ -41,8 +41,15 @@ function Run-Step {
 
 Write-Output "P666 一键验收"
 Write-Output ("仓库根: " + $RepoRoot)
-Write-Output ("HEAD  : " + (& git rev-parse HEAD))
+$Commit = (& git rev-parse HEAD)
+Write-Output ("HEAD  : " + $Commit)
 Write-Output ("分支  : " + (& git branch --show-current))
+if ($Commit) {
+    $Commit = $Commit.Trim()
+    Write-Output ("S4: 将把 code_commit=" + $Commit + " 注入工具产物（.ps1 不进 AST 审计，故由这里取 git 值）")
+} else {
+    Write-Output "S4: 未能取得 commit（工具产物将记录 code_commit=null）"
+}
 
 Run-Step -Name "1/5 提交预检 check_submission" -Exe $Py -CmdArgs @(
     "scripts\check_submission.py", "--submission", "participant\P666", "--output", (Join-Path $Out "check")
@@ -56,7 +63,7 @@ Run-Step -Name "2/5 公开评测 evaluate_one" -Exe $Py -CmdArgs @(
 
 Run-Step -Name "3/5 双块 MC eval_mc" -Exe $Py -CmdArgs @(
     "participant\P666\tools_local\eval_mc.py", "--output", (Join-Path $Out "mc"),
-    "--tag", "acceptance", "--seed-block", "both"
+    "--tag", "acceptance", "--seed-block", "both", "--code-commit", $Commit
 ) -WorkDir (Join-Path $Out "mc")
 
 Run-Step -Name "4/5 鲁棒性自测 robustness_check" -Exe $Py -CmdArgs @(

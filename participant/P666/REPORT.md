@@ -303,7 +303,8 @@ py -3.12 -m venv .venv
 - **行尾转换防护（v2 验收实测发现并修复）**：`artifacts/rule-config.json` 的字节数与摘要写在
   `submission.yaml` 里，而 Git 在 `core.autocrlf=true` 的平台（Windows 默认常见）会把文本文件的 LF
   转成 CRLF。**实测在一份干净克隆里该文件变成 462 字节（预期 449），预检直接以"产物文件大小不匹配"
-  拒绝整份提交。** 因此新增 `participant/P666/.gitattributes` 声明 `artifacts/** -text`，
+  拒绝整份提交。** 因此新增 `participant/P666/.gitattributes` 声明 `* -text`（保护整棵子树，
+  因为本报告同样公开了 `entry.py` 的 SHA-256 与逐字节核验方法），
   保证"本地工作副本 = 干净克隆 = 组织方容器"三种情形下字节一致；修复后干净克隆中实测 449 字节、
   预检 `rejections: []`、`working_tree_dirty: false`。
 - **关于 `working_tree_dirty`**：官方 `coverage_bench/submission.py:144-161` 明确把**被忽略的文件**

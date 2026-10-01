@@ -18,6 +18,8 @@
 from typing import Dict, Optional, Tuple
 import sys
 
+sys.dont_write_bytecode = True  # PYC_GUARD：不写出 __pycache__（官方预检把被忽略文件也算未提交内容）
+
 __all__ = [
     # 块 A（旧名，语义不变）
     "UNIFORM_SEEDS",

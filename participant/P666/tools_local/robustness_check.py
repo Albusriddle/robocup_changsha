@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+
+sys.dont_write_bytecode = True  # PYC_GUARD：不写出 __pycache__（官方预检把被忽略文件也算未提交内容）
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 

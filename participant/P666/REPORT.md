@@ -368,7 +368,7 @@ py -3.12 -m venv .venv
   已更正为 `184.667` 并加勘误说明；② 本报告 `act` 耗时原先偏乐观，已改为独立复核实测区间；
   ③ 几何上界的种子区间标签原先写成 5001–5050/6001–6050，实际为 5001–5040/6001–6040（42 例/组）。
   复核未发现编造数据、也未发现"声称跑过但产物不存在"的情形。
-- **独立复核（v2/v3，`notes/verify/VERIFY-REPORT-v2.md`）——已完成条目 1–8（§六 全覆盖）**：
+- **独立复核（v2，`notes/verify/VERIFY-REPORT-v2.md`）——已完成条目 1–8（§六 全覆盖）**：
   由独立会话执行（非实现者），逐条给出命令、原始输出与判定。**一致项**：冻结基线四路一致
   （内容 SHA-256 / 工作区 blob / HEAD 树 blob / 手工 `sha1("blob <len>\0"+bytes)`）；
   干净克隆中 `.gitattributes` 的 `* -text` 生效（`check-attr` 为 `text: unset`、`ls-files --eol` 为 `i/lf w/lf attr/-text`），
@@ -382,6 +382,13 @@ py -3.12 -m venv .venv
   而 entry 按取值域静默回退 20.0 ⇒ **产物记录了未生效的配置、实验归因会失真**（现改为比较"请求值 vs
   生效值"，不一致即中止并打印两者，exit 2）。修复后复测：两类非法输入均 exit 2、合法 `--set` 仍 exit 0、
   208 局与改前逐位一致、`rejections`/`scan_hits` 仍为空数组。
+
+- **独立复核（v3，`notes/verify/VERIFY-REPORT-v3.md`）——E008 行为变更轮的独立复核（部分完成，如实披露）**：
+  由独立会话执行，基线 `2cec170`。**已完成 §2.1 冻结基线复算**（`entry.py` 内容 sha256/工作区 blob/HEAD 树 blob 三者一致、
+  与 REPORT §10 声明一致；`rule-config.json` 783 B/`b1882c8f…` 与 `submission.yaml` manifest 逐项一致；`git status` 干净 ⇒ 无未提交漂移），
+  三项判定均为"一致"。**§2.2 KeyError 对抗测试与 §2.3–§2.6（盲走不变性、死区 no-op、隔离性复现、范围与洁净）尚未写入其报告
+  —— 独立复核会话连续被中断，属"未覆盖"。** 这些条目已由实现者自检执行（`notes/verify/e008_ablation.py`、
+  `e008_round3_sweep.py`、`e008_full_rerun.py`、`final_acceptance.py` 16/16 PASS），但**自检不构成独立复核**。
 
 ### v2 定点修复轮（F1–F15，甲类零行为变更）
 

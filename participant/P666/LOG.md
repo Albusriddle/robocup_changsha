@@ -487,3 +487,21 @@ basic-0/basic-1/coop-1 覆盖率逐项不变，8 局全 ok）；块 A **184.667�
 **代码级安全边界**：新增 6 个数值/布尔键均登记进 `DEFAULT_CONFIG` 与 `_RANGE_BY_KEY`（并把范围表改成
 `.get()` 兜底，杜绝 KeyError 逃出 `load_config` → `build_policy` 异常 → 整次评测归零）；死区只作用于
 "追目标"路径（`is_target=True`），盲走分支与 E001–E007 逐位相同；`--set` 越界/未知键仍由 `_override_mismatch` 拦截（exit 2）。
+
+---
+
+## 哈希身份（rebase 之后，2026-10-02）
+
+本仓库在 E008 轮前对 `P666` 做过基座 rebase（`--onto upstream/master 8b672c9`），提交哈希改变、**内容哈希不变**。
+材料一律以**内容哈希**为主身份：
+
+| 版本 | 提交（rebase 前 → 后） | `entry.py` 内容 sha256 |
+| --- | --- | --- |
+| V1（E001–E006 口径） | `aa547612…f19c` → `663aba2a…d2429` | `3e66c74b…08ca3` |
+| F3 计数器（E007 起） | `e18a9b15…0eeea` → `0c19e6f5…04797` | `205bcc16…f9275` |
+| S 轮末（F1–F15） | `defd0d27…1fcbf` → `6917ba1c…6af48` | `fe9e6049…3f26` |
+| **E008 采纳档（当前）** | — → `2cec1707…de8e56` | **`449a3c51…b493b`** |
+
+完整 25 条旧→新映射表见 `REPORT.md` §13；复算脚本 `notes/verify/hash_identity.py`（二进制安全）。
+标签实测：`v1.0→89589c8`、`v1.1→979e20f`、`v1.2→defd0d2`（rebase **前**提交，按规则未移动）、`v1.3→2cec170`（最终）。
+推送时必须一并推送标签，否则克隆后 rebase 前的历史提交不可达。

@@ -99,6 +99,41 @@ Write-Output ("-> exit code: " + $scopeCode)
 $results += [pscustomobject]@{ Step = "5/5 范围与洁净自查"; ExitCode = $scopeCode }
 
 Write-Output ""
+# ---- 材料哈希自检（W3）：抽取材料里所有 64 位十六进制串，逐个校验 ----
+# 目的：自动拦住"文档写着旧哈希/写错哈希"这类矛盾（本轮曾出现 §4 头部沿用旧 entry.py 摘要）。
+Write-Output ""
+Write-Output "=== 材料哈希自检（REPORT/LOG/experiments/submission）==="
+$known = @{}
+foreach ($rel in @("participant\P666\entry.py", "participant\P666\artifacts\rule-config.json")) {
+    $full = Join-Path $RepoRoot $rel
+    $known[(Get-FileHash -Algorithm SHA256 -LiteralPath $full).Hash.ToLower()] = "current:$rel"
+}
+# 历史内容哈希（由 notes\verify\hash_identity.py 以 git cat-file blob 二进制安全复算；见 REPORT.md §13）
+$historical = @{
+    "3e66c74b41f3c9706ec186a999d0cf3ceaaf48bee81d803334c9cfd7cc708ca3" = "entry.py @ V1（rebase 前 aa54761 / 后 663aba2）"
+    "205bcc16a648398fe5f16b4ce59af86502d7953ecf70571ae40ee2be2a8f9275" = "entry.py @ e18a9b1（F3 计数器）"
+    "fe9e604908c8c4d2ff404ea1256cb0e107982e5d7e51df20de0cca0684e63f26" = "entry.py @ defd0d2（S 轮末）"
+    "bb55d0464b9374f7fd3e1d976ebadc8c9e1bef0e2e170a507d883210d36fd9bd" = "rule-config.json @ E008 前（449 B）"
+}
+$badHash = @()
+$seen = 0
+foreach ($rel in @("participant\P666\REPORT.md", "participant\P666\LOG.md",
+                   "participant\P666\experiments.csv", "participant\P666\submission.yaml")) {
+    $text = Get-Content -LiteralPath (Join-Path $RepoRoot $rel) -Raw
+    foreach ($m in [regex]::Matches($text, '\b[0-9a-f]{64}\b')) {
+        $seen++
+        $h = $m.Value
+        if (-not ($known.ContainsKey($h) -or $historical.ContainsKey($h))) { $badHash += ($rel + " " + $h) }
+    }
+}
+Write-Output ("--- 扫描到 64 位哈希 " + $seen + " 处；已知集合 " + ($known.Count + $historical.Count) + " 个 ---")
+if ($badHash.Count -gt 0) {
+    Write-Output "-> 未登记/不一致的哈希:"
+    $badHash | ForEach-Object { Write-Output ("   " + $_) }
+}
+$hashCode = if ($badHash.Count -gt 0) { 1 } else { 0 }
+Write-Output ("-> exit code: " + $hashCode)
+$results += [pscustomobject]@{ Step = "材料哈希自检"; ExitCode = $hashCode }
 Write-Output "=== 汇总 ==="
 $results | ForEach-Object { Write-Output ("  " + $_.Step + " -> " + $_.ExitCode) }
 $bad = @($results | Where-Object { $_.ExitCode -ne 0 })

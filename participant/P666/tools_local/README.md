@@ -46,7 +46,10 @@ powershell -ExecutionPolicy Bypass -File participant\P666\tools_local\acceptance
 
 `--set` 可用键（与 `entry.DEFAULT_CONFIG` 逐字一致）：
 `control_gain`、`predict_horizon`(`remaining`/`zero`)、`unit_magnitude`(bool)、`deconflict`(bool)、
-`safety_radius`、`safety_gain`、`memory`(bool)、`blind_action`(`center`/`stay`)、`clip_eps`。
+`safety_radius`、`safety_gain`、`memory`(bool)、`blind_action`(`center`/`stay`)、`clip_eps`；
+**E008 新增**：`pred_avoid`(bool，默认 true)、`t_lookahead`(0.1–1.0，默认 0.4)、`tangential_bias`(0–1，默认 0.7)、
+`contact_margin`(0–0.05，默认 0.015)、`avoid_gain`(0–20，默认 16)、`deadzone_radius`(0–0.2，默认 0.0=关闭)、`dz_gain`(0–10，默认 4)。
+新键均已登记进 `entry._RANGE_BY_KEY`（`.get()` 兜底），越界值由 `--set` 校验拦截并 exit 2。
 
 ## 口径（与官方同构，不自造评分公式）
 

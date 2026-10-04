@@ -1,6 +1,6 @@
 {
   "schema_version": "coverage-rule-config/1.0",
-  "_note": "P666 规则策略的冻结超参数；entry.py:load_config 只读取下列 9 个契约键，未知键被忽略，缺失/损坏时回退 entry.py:DEFAULT_CONFIG。",
+  "_note": "P666 规则策略的冻结超参数；entry.py:load_config 只读取本文件中出现在 entry.py:DEFAULT_CONFIG 里的键，未知键被忽略，缺失/损坏时回退 DEFAULT_CONFIG。E008 新增键（pred_avoid/t_lookahead/tangential_bias/contact_margin/avoid_gain/deadzone_radius/dz_gain）已登记进 entry.py:_RANGE_BY_KEY。",
   "control_gain": 20.0,
   "predict_horizon": "remaining",
   "unit_magnitude": false,
@@ -9,5 +9,12 @@
   "safety_gain": 4.0,
   "memory": true,
   "blind_action": "center",
-  "clip_eps": 1e-06
+  "clip_eps": 1e-06,
+  "pred_avoid": true,
+  "t_lookahead": 0.4,
+  "tangential_bias": 0.7,
+  "contact_margin": 0.015,
+  "avoid_gain": 16.0,
+  "deadzone_radius": 0.0,
+  "dz_gain": 4.0
 }

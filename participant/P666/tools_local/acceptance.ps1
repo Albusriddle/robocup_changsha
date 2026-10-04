@@ -72,8 +72,8 @@ Run-Step -Name "4/5 鲁棒性自测 robustness_check" -Exe $Py -CmdArgs @(
 
 Write-Output ""
 Write-Output "=== 5/5 范围与洁净自查 ==="
-Write-Output "--- git diff --name-only master...P666 ---"
-$changed = @(& git diff --name-only master...P666)
+Write-Output "--- git diff --name-only upstream/master...P666 ---"
+$changed = @(& git diff --name-only upstream/master...P666)
 $changed | ForEach-Object { Write-Output ("   " + $_) }
 $outside = @($changed | Where-Object { $_ -notlike "participant/P666/*" })
 
@@ -103,10 +103,14 @@ Write-Output ""
 # 目的：自动拦住"文档写着旧哈希/写错哈希"这类矛盾（本轮曾出现 §4 头部沿用旧 entry.py 摘要）。
 Write-Output ""
 Write-Output "=== 材料哈希自检（REPORT/LOG/experiments/submission）==="
+# 用 .NET 直接算 SHA-256：不依赖 Get-FileHash 的模块自动加载
+# （实测：从 Python 子进程以 powershell 5.1 调用时，跨版本 PSModulePath 会让 Get-FileHash 报 CommandNotFound）
 $known = @{}
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
 foreach ($rel in @("participant\P666\entry.py", "participant\P666\artifacts\rule-config.json")) {
     $full = Join-Path $RepoRoot $rel
-    $known[(Get-FileHash -Algorithm SHA256 -LiteralPath $full).Hash.ToLower()] = "current:$rel"
+    $hex = ([System.BitConverter]::ToString($sha256.ComputeHash([System.IO.File]::ReadAllBytes($full)))).Replace("-", "").ToLower()
+    $known[$hex] = "current:$rel"
 }
 # 历史内容哈希（由 notes\verify\hash_identity.py 以 git cat-file blob 二进制安全复算；见 REPORT.md §13）
 $historical = @{
